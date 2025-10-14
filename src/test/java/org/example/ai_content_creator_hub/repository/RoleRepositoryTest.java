@@ -1,6 +1,7 @@
 package org.example.ai_content_creator_hub.repository;
 
 import org.example.ai_content_creator_hub.entity.auth.Role;
+import org.example.ai_content_creator_hub.entity.auth.RoleName;
 import org.example.ai_content_creator_hub.repository.auth.RoleRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,25 +23,25 @@ public class RoleRepositoryTest {
     @Test
     public void testSaveRole() {
         // Create a new role
-        Role role = new Role("ROLE_ADMIN");
+        Role role = new Role(RoleName.ROLE_ADMIN);
         Role savedRole = roleRepository.save(role);
 
         // Assert that the role was saved and has a valid ID
         assertThat(savedRole.getId()).isNotNull();
-        assertThat(savedRole.getName()).isEqualTo("ROLE_ADMIN");
+        assertThat(savedRole.getName()).isEqualTo(RoleName.ROLE_ADMIN);
     }
 
     @Test
     public void testFindRoleByName() {
         // Create and save a role
-        Role role = new Role("ROLE_MANAGER");
+        Role role = new Role(RoleName.ROLE_ADMIN);
         roleRepository.save(role);
 
         // Retrieve the role by its name
-        Optional<Role> retrievedRole = roleRepository.findByName("ROLE_MANAGER");
+        Optional<Role> retrievedRole = roleRepository.findByName(RoleName.ROLE_ADMIN);
 
         // Assert that the role was found and its name is correct
         assertThat(retrievedRole).isNotNull();
-        assertThat(retrievedRole.get().getName()).isEqualTo("ROLE_MANAGER");
+        assertThat(retrievedRole.get().getName()).isEqualTo(RoleName.ROLE_ADMIN);
     }
 }

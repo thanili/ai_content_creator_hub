@@ -3,7 +3,9 @@ package org.example.ai_content_creator_hub.configuration;
 import org.example.ai_content_creator_hub.filter.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,6 +15,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -35,14 +42,23 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Disable CSRF for stateless APIs
+                // CORS for SPA (must be before authorizeHttpRequests)
+                .cors(Customizer.withDefaults())
+
+                // Stateless API => no CSRF (but explicitly ignore h2-console just in case)
                 .csrf(AbstractHttpConfigurer::disable)
+
+                // H2 console needs frames
+                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
 
                 // Define authorization rules
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/user/register").permitAll()
                         .requestMatchers("/api/auth/**").permitAll() // Public access to authentication endpoints
                         .requestMatchers("/swagger-ui.html","/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/h2-console/**").permitAll()
+                        // allow OPTIONS for CORS preflight
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated() // Secure all other endpoints
                 )
 
@@ -55,6 +71,25 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * CORS config so your SPA (Vite/React, etc.) can call the API during dev.
+     * Adjust origins to match your frontend dev server(s).
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        var cfg = new CorsConfiguration();
+        // If you want to be more flexible, use setAllowedOriginPatterns(List.of("http://localhost:*"))
+        cfg.setAllowedOriginPatterns(List.of("http://localhost:*"));
+        //cfg.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
+        cfg.setAllowedHeaders(List.of("Authorization","Content-Type"));
+        cfg.setAllowCredentials(true); // allow cookies/credentials if needed
+
+        var source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cfg);
+        return source;
     }
 
     /**

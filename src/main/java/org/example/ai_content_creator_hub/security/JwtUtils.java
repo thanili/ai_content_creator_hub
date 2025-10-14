@@ -1,10 +1,14 @@
 package org.example.ai_content_creator_hub.security;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +24,30 @@ public class JwtUtils {
     private String accessTokenExpirationTimeMs;
     @Value("${org.example.project_management.jwt.refresh.expiration}")
     private String refreshTokenExpirationTimeMs;
+    @Value("${org.example.project_management.jwt.clockSkewSeconds}")
+    private long clockSkewSeconds;
+
+    private Key key;
+    private JwtParser parser;
+
+    @PostConstruct
+    void init() {
+        // Try Base64 first; if it fails, fall back to raw bytes.
+        byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(secret);
+        } catch (IllegalArgumentException ex) {
+            // Not valid Base64 -> treat as plain text
+            keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        }
+        // For HS384, ensure at least 48-byte (~384-bit) key material for security.
+        this.key = Keys.hmacShaKeyFor(keyBytes);
+
+        this.parser = Jwts.parserBuilder()
+                .setSigningKey(this.key)
+                .setAllowedClockSkewSeconds(clockSkewSeconds)
+                .build();
+    }
 
     /**
      * Generates a JWT access token for the given username.
@@ -28,14 +56,7 @@ public class JwtUtils {
      * @return the generated JWT access token
      */
     public String generateAccessToken(String username) {
-        Map<String, Object> claims = new HashMap<>();
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + Integer.parseInt(accessTokenExpirationTimeMs)))
-                .signWith(SignatureAlgorithm.HS384, secret)
-                .compact();
+        return generateToken(username, Integer.parseInt(accessTokenExpirationTimeMs));
     }
 
     /**
@@ -45,14 +66,7 @@ public class JwtUtils {
      * @return the generated JWT refresh token
      */
     public String generateRefreshToken(String username) {
-        Map<String, Object> claims = new HashMap<>();
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + Integer.parseInt(refreshTokenExpirationTimeMs)))
-                .signWith(SignatureAlgorithm.HS384, secret)
-                .compact();
+        return generateToken(username, Integer.parseInt(refreshTokenExpirationTimeMs));
     }
 
     /**
@@ -62,7 +76,7 @@ public class JwtUtils {
      * @return the username extracted from the token
      */
     public String extractUsername(String token) {
-        return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody().getSubject();
+        return getAllClaims(token).getSubject();
     }
 
     /**
@@ -73,8 +87,32 @@ public class JwtUtils {
      * @return true if the token is valid and matches the username, false otherwise
      */
     public boolean validateToken(String token, String username) {
-        final String extractedUsername = extractUsername(token);
-        return (extractedUsername.equals(username) && !isTokenExpired(token));
+        try {
+            Claims claims = getAllClaims(token);
+            final String actualUsername = claims.getSubject();
+            return username.equals(actualUsername) && claims.getExpiration().after(new Date());
+        } catch (JwtException | IllegalArgumentException e) {
+            // Signature invalid, token malformed/expired, etc.
+            return false;
+        }
+    }
+
+    private String generateToken(String subject, long expirationMs) {
+        Map<String, Object> claims = new HashMap<>();
+        final Date now = new Date();
+        final Date exp = new Date(now.getTime() + expirationMs);
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(now)
+                .setExpiration(exp)
+                .signWith(this.key, SignatureAlgorithm.HS384)
+                .compact();
+    }
+
+    private Claims getAllClaims(String token) {
+        return parser.parseClaimsJws(token).getBody();
     }
 
     /**

@@ -15,6 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Service class for managing content and conversations within the system.
+ * This class provides functionality to create and retrieve content, conversations,
+ * and their associations with users.
+ *
+ * The service layer interacts with the persistence layer through the
+ * {@code GeneratedContentRepository} and {@code ConversationRepository} interfaces.
+ *
+ * It also handles transactional operations to manage the creation of entities.
+ */
 @Service
 public class ContentService {
     private static final Logger logger = LoggerFactory.getLogger(ContentService.class);

@@ -1,6 +1,7 @@
 package org.example.ai_content_creator_hub.util;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.example.ai_content_creator_hub.dto.ImageRequestDto;
 import org.example.ai_content_creator_hub.dto.TextRequestDto;
 import org.example.ai_content_creator_hub.dto.TextResponseDto;
@@ -14,7 +15,6 @@ import org.example.ai_content_creator_hub.dto.google.request.DocumentDTO;
 import org.example.ai_content_creator_hub.entity.ContentRole;
 import org.example.ai_content_creator_hub.entity.ContentType;
 import org.example.ai_content_creator_hub.entity.GeneratedContent;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

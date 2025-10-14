@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -18,17 +19,17 @@ public class Role {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull
-    @Column(unique = true)
-    private String name;
+    @NotNull @Enumerated(EnumType.STRING)
+    @Column(unique = true, nullable = false)
+    private RoleName name;
 
     @OneToMany(mappedBy = "role", fetch = FetchType.LAZY)
     @ToString.Exclude  // Avoid recursive issues in `toString()`
-    private List<User> users;
+    private List<User> users = new ArrayList<>();
 
     public Role() {}
 
-    public Role(String name) {
+    public Role(RoleName name) {
         this.name = name;
     }
 }

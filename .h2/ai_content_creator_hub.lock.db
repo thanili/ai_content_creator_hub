@@ -1,0 +1,6 @@
+#FileLock
+#Tue Oct 14 18:28:11 CEST 2025
+server=192.168.207.2\:50851
+hostName=GR-NB-ATH1.mspos.local
+method=file
+id=199e38cf9e2000558381bc3e0fb01afb6d865e53953

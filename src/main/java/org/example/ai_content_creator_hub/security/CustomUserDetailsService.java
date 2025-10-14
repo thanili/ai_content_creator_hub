@@ -46,9 +46,14 @@ public class CustomUserDetailsService implements UserDetailsService {
         logger.info("Trying to find user with username: " + username);
         User user = userRepository.findByUsername(username.trim())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
-        return new org.springframework.security.core.userdetails
-                .User(user.getUsername(),
+
+        // enum already stores ROLE_* name
+        String authority = user.getRole().getName().name();
+
+        return new org.springframework.security.core.userdetails.User(
+                user.getUsername(),
                 user.getPassword(),
-                List.of(new SimpleGrantedAuthority(user.getRole().getName())));
+                List.of(new SimpleGrantedAuthority(authority))
+        );
     }
 }

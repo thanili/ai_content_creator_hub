@@ -1,6 +1,7 @@
 package org.example.ai_content_creator_hub.repository;
 
 import org.example.ai_content_creator_hub.entity.auth.Role;
+import org.example.ai_content_creator_hub.entity.auth.RoleName;
 import org.example.ai_content_creator_hub.entity.auth.User;
 import org.example.ai_content_creator_hub.repository.auth.RoleRepository;
 import org.example.ai_content_creator_hub.repository.auth.UserRepository;
@@ -27,7 +28,7 @@ public class UserRepositoryTest {
     @Test
     public void testFindByUsername() {
         // Create a new role
-        Role role = new Role("ROLE_USER");
+        Role role = new Role(RoleName.ROLE_USER);
         roleRepository.save(role);
 
         // Create a new user with the saved role

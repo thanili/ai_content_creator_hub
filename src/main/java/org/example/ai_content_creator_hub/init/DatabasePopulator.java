@@ -2,6 +2,7 @@ package org.example.ai_content_creator_hub.init;
 
 
 import org.example.ai_content_creator_hub.entity.auth.Role;
+import org.example.ai_content_creator_hub.entity.auth.RoleName;
 import org.example.ai_content_creator_hub.entity.auth.User;
 import org.example.ai_content_creator_hub.repository.ConversationRepository;
 import org.example.ai_content_creator_hub.repository.GeneratedContentRepository;
@@ -50,16 +51,16 @@ public class DatabasePopulator {
     @Transactional
     public void populateApiUsers() {
         // Check for the 'ADMIN' role, and create it if it doesn't exist
-        Optional<Role> optionalRoleAdmin = roleRepository.findByName("ADMIN");
+        Optional<Role> optionalRoleAdmin = roleRepository.findByName(RoleName.ROLE_ADMIN);
         Role roleAdmin = optionalRoleAdmin.orElseGet(() -> {
-            Role newRole = new Role("ADMIN");
+            Role newRole = new Role(RoleName.ROLE_ADMIN);
             return roleRepository.save(newRole);
         });
 
         // Check for the 'USER' role, and create it if it doesn't exist
-        Optional<Role> optionalRoleUser = roleRepository.findByName("USER");
+        Optional<Role> optionalRoleUser = roleRepository.findByName(RoleName.ROLE_USER);
         Role roleUser = optionalRoleUser.orElseGet(() -> {
-            Role newRole = new Role("USER");
+            Role newRole = new Role(RoleName.ROLE_USER);
             return roleRepository.save(newRole);
         });
 
