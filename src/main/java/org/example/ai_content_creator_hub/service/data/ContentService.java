@@ -5,7 +5,6 @@ import org.example.ai_content_creator_hub.entity.auth.User;
 import org.example.ai_content_creator_hub.exception.ConversationNotFoundException;
 import org.example.ai_content_creator_hub.repository.ConversationRepository;
 import org.example.ai_content_creator_hub.repository.GeneratedContentRepository;
-import org.example.ai_content_creator_hub.repository.ImageRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -57,6 +57,7 @@ public class ContentService {
         return generatedContentRepository.save(newContent);
     }
 
+    @Transactional
     public Conversation createConversation(User user) {
         Conversation conversation = new Conversation();
         conversation.setUser(user);
@@ -64,24 +65,27 @@ public class ContentService {
         return conversationRepository.save(conversation);
     }
 
+    @Transactional(readOnly = true)
     public List<GeneratedContent> getUserContent(Long userId) {
-        return generatedContentRepository.findByUserId(userId);
+        return generatedContentRepository.findByUser_Id(userId);
     }
 
+    @Transactional(readOnly = true)
     public List<Conversation> getUserConversations(Long userId) {
-        return conversationRepository.findByUserId(userId);
+        return conversationRepository.findByUser_Id(userId);
     }
 
-    public List<GeneratedContent> getUserConversationMessages(Long userId, Long conversationId) {
-        // Throw exception if conversation not found ?
-        return generatedContentRepository.findByUserIdAndConversationId(userId, conversationId);
-    }
-
+    @Transactional(readOnly = true)
     public Conversation getConversation(Long conversationId) {
         return conversationRepository.findById(conversationId)
                 .orElseThrow(() -> {
                     logger.error("Conversation not found: {}", conversationId);
                     return new ConversationNotFoundException("Conversation not found: " + conversationId);
                 });
+    }
+
+    @Transactional(readOnly = true)
+    public List<GeneratedContent> getUserConversationMessagesSorted(Long userId, Long conversationId) {
+        return generatedContentRepository.findByUserIdAndConversationIdOrderByGeneratedAtAsc(userId, conversationId);
     }
 }

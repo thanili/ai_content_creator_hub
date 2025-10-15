@@ -1,10 +1,11 @@
 package org.example.ai_content_creator_hub.service.ai;
 
-import org.example.ai_content_creator_hub.dto.TextRequestDto;
 import org.example.ai_content_creator_hub.dto.openai.request.OpenAITextRequestDto;
 import org.example.ai_content_creator_hub.dto.openai.response.OpenAITextResponseDto;
 import org.example.ai_content_creator_hub.entity.*;
-import org.example.ai_content_creator_hub.exception.OpenAIServiceException;
+import org.example.ai_content_creator_hub.entity.auth.User;
+import org.example.ai_content_creator_hub.exception.AIServiceException;
+import org.example.ai_content_creator_hub.exception.ConversationNotFoundException;
 import org.example.ai_content_creator_hub.exception.UserNotFoundException;
 import org.example.ai_content_creator_hub.service.data.ContentService;
 import org.example.ai_content_creator_hub.service.data.UserService;
@@ -12,12 +13,10 @@ import org.example.ai_content_creator_hub.util.AIUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import java.util.List;
 
 /**
  * Service class for interacting with the OpenAI API.
@@ -26,9 +25,7 @@ import java.util.List;
 public class OpenAIService {
     private static final Logger logger = LoggerFactory.getLogger(OpenAIService.class);
 
-    @Value("${openai.api.key}")
-    private String openAiApiKey;
-
+    @Qualifier("openAiWebClient")
     private final WebClient openAiWebClient;
     private final UserService userService;
     private final ContentService contentService;
@@ -52,73 +49,41 @@ public class OpenAIService {
     /**
      * Creates a new conversation for the user and stores it in the database.
      *
-     * @param user the user for whom to create the conversation
+     * @param username the username for whom to create the conversation
      * @return the created conversation
      * @throws UserNotFoundException if the user is not found
      */
-    public Conversation createConversation(User user) {
-        org.example.ai_content_creator_hub.entity.auth.User localUser = userService.findByUsername(user.getUsername());
+    @Transactional
+    public Conversation createConversation(String username) {
+        User localUser = userService.findByUsername(username);
         return contentService.createConversation(localUser);
-    }
-
-    /**
-     * Prepares the conversation by adding the user's message to the conversation.
-     *
-     * @param textRequest    the text request details
-     * @param user           the authenticated user
-     * @param conversationId the ID of the conversation
-     * @return a list of generated content for the conversation
-     */
-    public List<GeneratedContent> prepareConversation(TextRequestDto textRequest, User user, Long conversationId) {
-        logger.info("Generating text for conversation: {}", conversationId);
-        // Get the current user
-        org.example.ai_content_creator_hub.entity.auth.User localUser = userService.findByUsername(user.getUsername());
-        // Get the conversation from database
-        Conversation conversation = contentService.getConversation(conversationId);
-        // Get the conversation messages from database
-        List<GeneratedContent> conversationMessages = contentService.getUserConversationMessages(localUser.getId(), conversationId);
-        // Store the user message in the conversation
-        GeneratedContent userContent = contentService
-                .createGeneratedContent(ContentType.TEXT, ContentRole.USER, ContentSource.OPEN_AI, textRequest.getInputText(), localUser, conversation);
-        // Add the current user message to the conversation messages
-        conversationMessages.add(userContent);
-        return conversationMessages;
-    }
-
-    /**
-     * Generates text for an ongoing conversation using the OpenAI API.
-     *
-     * @param request        the request object containing the input data
-     * @param user           the authenticated user
-     * @param conversationId the ID of the conversation
-     * @return the response from the OpenAI API
-     */
-    public OpenAITextResponseDto generateConversationText(OpenAITextRequestDto request, User user, Long conversationId) {
-        org.example.ai_content_creator_hub.entity.auth.User u = userService.findByUsername(user.getUsername());
-        return callOpenAIAPI(request);
     }
 
     /**
      * Generates text using the OpenAI API. It stores the generated content in the database.
      *
-     * @param request the request object containing the input data
-     * @param user    the user making the request
+     * @param request  the request object containing the input data
+     * @param username the user's username making the request
      * @return the response from the OpenAI API
-     * @throws OpenAIServiceException if an error occurs while communicating with the OpenAI API
+     * @throws AIServiceException if an error occurs while communicating with the OpenAI API
      */
-    public OpenAITextResponseDto generateSimpleText(OpenAITextRequestDto request, User user, ContentType contentType) {
-        org.example.ai_content_creator_hub.entity.auth.User u = userService.findByUsername(user.getUsername());
+    @Transactional
+    public OpenAITextResponseDto generateSimpleText(OpenAITextRequestDto request, String username, ContentType contentType) {
+        User u = userService.findByUsername(username);
         OpenAITextResponseDto result = callOpenAIAPI(request);
         Conversation conversation = contentService.createConversation(u);
-        request.getMessages().stream().filter(m -> m.getRole().equals(ContentRole.USER.getDisplayName())).findFirst().ifPresent(m -> {
-            contentService.createGeneratedContent(
-                    contentType,
-                    ContentRole.USER,
-                    ContentSource.OPEN_AI,
-                    m.getContent().get(0).getText(),
-                    u,
-                    conversation);
-        });
+        request.getMessages().stream()
+                .filter(m -> m.getRole().equals(ContentRole.USER.getDisplayName()))
+                .findFirst()
+                .ifPresent(m -> {
+                    contentService.createGeneratedContent(
+                            contentType,
+                            ContentRole.USER,
+                            ContentSource.OPEN_AI,
+                            m.getContent().get(0).getText(),
+                            u,
+                            conversation);
+                });
         GeneratedContent assistantContent =
                 contentService.createGeneratedContent(
                         contentType,
@@ -132,29 +97,36 @@ public class OpenAIService {
     }
 
     /**
-     * Stores the generated content in the conversation.
-     *
-     * @param contentType    the type of content being generated
-     * @param contentRole    the role of the content (e.g., user, assistant)
-     * @param contentSource  the source of the content (e.g., OpenAI)
-     * @param generatedText  the generated text
-     * @param user           the authenticated user
-     * @param conversationId the ID of the conversation
-     * @return the stored generated content
+     * Appends a user turn, calls OpenAI with full history, stores assistant turn,
+     * and returns the assistant text.
      */
-    public GeneratedContent storeGeneratedContentInConversation(
-            ContentType contentType,
-            ContentRole contentRole,
-            ContentSource contentSource,
-            String generatedText,
-            User user,
-            Long conversationId) {
-        // Get the current user
-        org.example.ai_content_creator_hub.entity.auth.User localUser = userService.findByUsername(user.getUsername());
-        // Get the conversation from database
-        Conversation conversation = contentService.getConversation(conversationId);
-        // Store AI response in the conversation
-        return contentService.createGeneratedContent(contentType, contentRole, contentSource, generatedText, localUser, conversation);
+    @Transactional
+    public OpenAITextResponseDto continueConversation(Long conversationId, String username, String userText, String model) {
+        var user = userService.findByUsername(username);
+        var convo = contentService.getConversation(conversationId);
+
+        // Ensure conversation belongs to caller
+        if (!convo.getUser().getId().equals(user.getId())) {
+            throw new ConversationNotFoundException("Conversation not found for user: " + conversationId);
+        }
+
+        // Append user message
+        contentService.createGeneratedContent(
+                ContentType.TEXT, ContentRole.USER, ContentSource.OPEN_AI, userText, user, convo);
+
+        // Load history (sorted oldest -> newest)
+        var history = contentService.getUserConversationMessagesSorted(user.getId(), conversationId);
+        // Build OpenAI request from history
+        var request = AIUtils.createOpenAIConversationTextRequest(history, model);
+        // Call OpenAI
+        var response = callOpenAIAPI(request);
+
+        // Store assistant message
+        var assistantText = AIUtils.getLastOpenAITextResponse(response).getGeneratedText();
+        contentService.createGeneratedContent(
+                ContentType.TEXT, ContentRole.ASSISTANT, ContentSource.OPEN_AI, assistantText, user, convo);
+
+        return response;
     }
 
     /**
@@ -166,7 +138,6 @@ public class OpenAIService {
     private OpenAITextResponseDto callOpenAIAPI(OpenAITextRequestDto request) {
         return this.openAiWebClient.post()
                 .uri("/chat/completions")
-                .header("Authorization", "Bearer " + openAiApiKey)
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(OpenAITextResponseDto.class)

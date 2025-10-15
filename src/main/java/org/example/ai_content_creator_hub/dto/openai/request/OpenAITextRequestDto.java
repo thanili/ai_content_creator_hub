@@ -15,7 +15,8 @@ public class OpenAITextRequestDto {
      * Limits the length of the summary. The maximum number of tokens to generate.
      * Requests can use up to 4096 tokens shared between prompt and completion.
      */
-    private Integer max_tokens;
+    @JsonProperty(value="max_tokens")
+    private Integer maxTokens;
     /**
      * Controls the creativity/randomness of the output.
      * Lower temperature makes the model less random by reducing the variety in token selection.
@@ -30,7 +31,8 @@ public class OpenAITextRequestDto {
      * A top_p value of 1 means the model considers all possible token choices (basically unconstrained sampling).
      * Lowering top_p (e.g., to 0.3 or 0.5) makes the model more focused and deterministic, as it will only sample from the tokens with the highest cumulative probability (e.g., the top 30% or 50%).
      */
-    private Double top_p;
+    @JsonProperty(value="top_p")
+    private Double toP;
     /**
      * Number of completions you want to receive from the model for a single request.
      * Example: If n is set to 1, you’ll get one summary. If n is set to 3, the API will return three separate summaries, and you can choose which one is best.

@@ -46,21 +46,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userDetailsService = userDetailsService;
     }
 
+    private boolean shouldSkip(String path) {
+        return path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/h2-console")
+                || path.startsWith("/api/auth")           // 👈 public auth endpoints
+                || path.equals("/api/user/register");     // 👈 public register
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws IOException, ServletException {
 
-        String path = request.getServletPath();
+        final String path = request.getServletPath();
 
-        // Skip JWT filtering for Swagger UI and OpenAPI documentation paths
-        if (path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs") || path.equals("/swagger-ui.html")) {
+        if (shouldSkip(path)) {
             chain.doFilter(request, response);
             return;
         }
 
         // Extract tokens from headers
         final String authorizationHeader = request.getHeader("Authorization");
-
         // If no Authorization header or doesn't start with "Bearer", skip authentication
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             chain.doFilter(request, response);
@@ -68,39 +75,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String jwt = authorizationHeader.substring(7); // Extract JWT token after "Bearer "
-        String username = null;
 
         try {
-            // Attempt to extract username from the token
-            username = jwtUtil.extractUsername(jwt);
-        } catch (ExpiredJwtException e) {
-            logger.error("JWT token is expired", e);
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("JWT Token is expired. Please refresh your token: " + e.getMessage());
+            final String username = jwtUtil.extractUsername(jwt);
+
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                final UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                if (jwtUtil.validateToken(jwt, userDetails.getUsername())) {
+                    var auth = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                } else {
+                    unauthorized(response, "Invalid JWT token");
+                    return;
+                }
+            }
+
+            chain.doFilter(request, response);
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            SecurityContextHolder.clearContext();
+            unauthorized(response, "JWT token expired");
             return;
-        } catch (MalformedJwtException e) {
-            logger.error("Malformed JWT token", e);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token");
+        } catch (io.jsonwebtoken.MalformedJwtException e) {
+            SecurityContextHolder.clearContext();
+            unauthorized(response, "Malformed JWT token");
             return;
         } catch (Exception e) {
-            logger.error("Invalid JWT token", e);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "JWT token error");
+            SecurityContextHolder.clearContext();
+            unauthorized(response, "JWT token error");
             return;
         }
+    }
 
-        // If username is found, check for authentication
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-            // Validate the token and authenticate if valid
-            if (jwtUtil.validateToken(jwt, userDetails.getUsername())) {
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
-        }
-
-        chain.doFilter(request, response);
+    private void unauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"" + message + "\"}");
+        response.getWriter().flush();
     }
 }

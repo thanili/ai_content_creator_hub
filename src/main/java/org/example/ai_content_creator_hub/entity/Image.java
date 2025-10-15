@@ -13,14 +13,18 @@ import java.time.LocalDateTime;
  * about images that are associated with a specific user.
  * It includes details about the text input used to generate the image,
  * the URL of the generated image, the upload timestamp, and the user who uploaded it.
- *
+ * <p>
  * This class is annotated as a JPA entity and includes the necessary mappings
  * for database persistence.
  */
+@Entity
+@Table(indexes = {
+        @Index(name = "idx_image_user", columnList = "user_id"),
+        @Index(name = "idx_image_uploaded_at", columnList = "uploadedAt")
+})
 @Getter
 @Setter
 @ToString
-@Entity
 public class Image {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,7 +34,7 @@ public class Image {
     @Column(nullable = false)
     private String inputText;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 2048)
     private String imageUrl;
 
     private LocalDateTime uploadedAt;
@@ -38,4 +42,9 @@ public class Image {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @PrePersist
+    void onCreate() {
+        if (uploadedAt == null) uploadedAt = LocalDateTime.now();
+    }
 }

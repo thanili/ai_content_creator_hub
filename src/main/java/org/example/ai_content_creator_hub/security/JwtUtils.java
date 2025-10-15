@@ -40,10 +40,16 @@ public class JwtUtils {
             // Not valid Base64 -> treat as plain text
             keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         }
+
+        // HS384 needs ≈48+ bytes of key; fail fast if too short
+        if (keyBytes.length < 48) {
+            throw new IllegalStateException("JWT secret too short for HS384. Provide a ≥48-byte key (Base64 recommended).");
+        }
+
         // For HS384, ensure at least 48-byte (~384-bit) key material for security.
         this.key = Keys.hmacShaKeyFor(keyBytes);
 
-        this.parser = Jwts.parserBuilder()
+        this.parser = io.jsonwebtoken.Jwts.parserBuilder()
                 .setSigningKey(this.key)
                 .setAllowedClockSkewSeconds(clockSkewSeconds)
                 .build();
@@ -98,16 +104,14 @@ public class JwtUtils {
     }
 
     private String generateToken(String subject, long expirationMs) {
-        Map<String, Object> claims = new HashMap<>();
         final Date now = new Date();
         final Date exp = new Date(now.getTime() + expirationMs);
 
-        return Jwts.builder()
-                .setClaims(claims)
+        return io.jsonwebtoken.Jwts.builder()
                 .setSubject(subject)
                 .setIssuedAt(now)
                 .setExpiration(exp)
-                .signWith(this.key, SignatureAlgorithm.HS384)
+                .signWith(this.key, io.jsonwebtoken.SignatureAlgorithm.HS384)
                 .compact();
     }
 

@@ -1,4 +1,4 @@
-package org.example.ai_content_creator_hub.service;
+package org.example.ai_content_creator_hub.service.data;
 
 import org.example.ai_content_creator_hub.entity.Image;
 import org.example.ai_content_creator_hub.repository.ImageRepository;

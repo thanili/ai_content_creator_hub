@@ -21,10 +21,15 @@ import java.time.LocalDateTime;
  * - @Setter: Automatically generates setter methods for all fields.
  * - @ToString: Automatically generates a toString method for debugging purposes.
  */
+@Entity
+@Table(indexes = {
+        @Index(name = "idx_gc_user", columnList = "user_id"),
+        @Index(name = "idx_gc_conversation", columnList = "conversation_id"),
+        @Index(name = "idx_gc_generated_at", columnList = "generatedAt")
+})
 @Getter
 @Setter
 @ToString
-@Entity
 public class GeneratedContent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,4 +60,9 @@ public class GeneratedContent {
     @ManyToOne
     @JoinColumn(name = "conversation_id") // Link to the conversation
     private Conversation conversation;
+
+    @PrePersist
+    void onCreate() {
+        if (generatedAt == null) generatedAt = LocalDateTime.now();
+    }
 }

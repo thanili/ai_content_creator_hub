@@ -3,7 +3,7 @@ package org.example.ai_content_creator_hub.configuration;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
-import org.example.ai_content_creator_hub.exception.OpenAIServiceException;
+import org.example.ai_content_creator_hub.exception.AIServiceException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,24 +22,33 @@ import java.time.Duration;
 public class WebClientConfig {
     @Value("${openai.api.base-url-v1}")
     private String openAiBaseUrlV1;
+    @Value("${openai.api.key}")
+    private String openAiApiKey;
 
     @Value("${google.api.base_url_v2}")
     private String googleBaseUrlV2;
+    @Value("${google.api.key}")
+    private String googleApiKey;
 
-    @Bean
+    @Bean(name = "openAiWebClient")
     public WebClient openAiWebClient(WebClient.Builder webClientBuilder) {
         return webClientBuilder
                 .baseUrl(openAiBaseUrlV1)
                 .clientConnector(new ReactorClientHttpConnector(httpClient()))
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + openAiApiKey)
                 .filter(errorMappingFilter)
                 .build();
     }
 
-    @Bean
+    @Bean(name = "googleWebClient")
     public WebClient googleWebClient(WebClient.Builder webClientBuilder) {
-        return webClientBuilder.baseUrl(googleBaseUrlV2)
+        return webClientBuilder
+                .baseUrl(googleBaseUrlV2)
+                .clientConnector(new ReactorClientHttpConnector(httpClient()) )
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                //.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + googleApiKey)
+                .filter(errorMappingFilter)
                 .build();
     }
 
@@ -54,7 +63,7 @@ public class WebClientConfig {
                         .addHandlerLast(new WriteTimeoutHandler(30)));
     }
 
-    /** Reusable error filter: converts 4xx/5xx into OpenAIServiceException/Generic exception with body text. */
+    /** Reusable error filter: converts 4xx/5xx into AIServiceException/Generic exception with body text. */
     private ExchangeFilterFunction errorMappingFilter =
             ExchangeFilterFunction.ofResponseProcessor(response -> {
                 HttpStatusCode status = response.statusCode();
@@ -62,8 +71,8 @@ public class WebClientConfig {
                     return response.bodyToMono(String.class)
                             .defaultIfEmpty("")
                             .flatMap(body -> {
-                                // Pick a domain-specific exception if you like; here I use OpenAIServiceException as example.
-                                return Mono.error(new OpenAIServiceException(
+                                // Pick a domain-specific exception if you like; here I use AIServiceException as example.
+                                return Mono.error(new AIServiceException(
                                         "HTTP " + status.value() + " from upstream: " + body));
                             });
                 }

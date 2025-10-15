@@ -2,15 +2,14 @@ package org.example.ai_content_creator_hub.service.ai;
 
 import org.example.ai_content_creator_hub.dto.google.request.AnalyzeSentimentRequestDto;
 import org.example.ai_content_creator_hub.dto.google.response.AnalyzeSentimentResponseDto;
-import org.example.ai_content_creator_hub.dto.openai.response.OpenAITextResponseDto;
 import org.example.ai_content_creator_hub.entity.*;
 import org.example.ai_content_creator_hub.service.data.ContentService;
 import org.example.ai_content_creator_hub.service.data.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -21,6 +20,7 @@ public class GoogleNLPService {
     @Value("${google.api.key}")
     private String googleApiKey;
 
+    @Qualifier("googleWebClient")
     private final WebClient googleWebClient;
     private final UserService userService;
     private final ContentService contentService;
@@ -34,8 +34,8 @@ public class GoogleNLPService {
         this.contentService = contentService;
     }
 
-    public AnalyzeSentimentResponseDto analyzeSentiment(AnalyzeSentimentRequestDto analyzeSentimentRequestDto, User user) {
-        org.example.ai_content_creator_hub.entity.auth.User u = userService.findByUsername(user.getUsername());
+    public AnalyzeSentimentResponseDto analyzeSentiment(AnalyzeSentimentRequestDto analyzeSentimentRequestDto, String username) {
+        org.example.ai_content_creator_hub.entity.auth.User u = userService.findByUsername(username);
         AnalyzeSentimentResponseDto result = callGoogleCloudNlpAPI(analyzeSentimentRequestDto);
         Conversation conversation = contentService.createConversation(u);
 

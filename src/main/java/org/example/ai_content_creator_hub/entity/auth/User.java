@@ -6,11 +6,13 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+@Entity
+@Table(name = "users",
+        indexes = @Index(name = "idx_user_username", columnList = "username")
+)  // Changed table name to avoid using reserved words.
 @Getter
 @Setter
 @ToString
-@Entity
-@Table(name = "users")  // Changed table name to avoid using reserved words.
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

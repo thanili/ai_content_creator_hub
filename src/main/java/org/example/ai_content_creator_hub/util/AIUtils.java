@@ -43,26 +43,38 @@ public class AIUtils {
     }
 
     @NotNull
-    public static OpenAITextRequestDto createOpenAIConversationTextRequest(List<GeneratedContent> conversationMessages, String openAiModel) {
+    public static OpenAITextRequestDto createOpenAIConversationTextRequest(
+            List<GeneratedContent> conversationMessages,
+            String openAiModel) {
+
         List<Message> messageList = new ArrayList<>();
 
-        // Convert stored content into OpenAI message format
+        // (Optional) system preface per chat—helps with consistency
+        Message system = new Message();
+        system.setRole(ContentRole.SYSTEM.getDisplayName());
+        Content sysContent = new Content();
+        sysContent.setType("text");
+        sysContent.setText("You are a helpful assistant.");
+        system.setContent(List.of(sysContent));
+        messageList.add(system);
+
         for (GeneratedContent msg : conversationMessages) {
-            Message message = new Message();
-            message.setRole(msg.getContentRole().equals(ContentRole.USER) ? ContentRole.USER.getDisplayName() : ContentRole.ASSISTANT.getDisplayName());
+            Message m = new Message();
+            // Map roles 1:1
+            m.setRole(msg.getContentRole().getDisplayName());
 
-            Content content = new Content();
-            content.setType(ContentType.TEXT.getDisplayName());
-            content.setText(msg.getContent());
-            message.setContent(List.of(content));
+            Content c = new Content();
+            c.setType("text");
+            c.setText(msg.getContent());
+            m.setContent(List.of(c));
 
-            messageList.add(message);
+            messageList.add(m);
         }
 
-        OpenAITextRequestDto openAiRequest = new OpenAITextRequestDto();
-        openAiRequest.setModel(openAiModel);
-        openAiRequest.setMessages(messageList);
-        return openAiRequest;
+        OpenAITextRequestDto req = new OpenAITextRequestDto();
+        req.setModel(openAiModel);
+        req.setMessages(messageList);
+        return req;
     }
 
     @NotNull
@@ -88,9 +100,9 @@ public class AIUtils {
         openAiRequest.setModel(openAiModel);
         openAiRequest.setMessages(List.of(systemMessage, userMessage));
 
-        openAiRequest.setMax_tokens(150);
+        openAiRequest.setMaxTokens(150);
         openAiRequest.setTemperature(0.3);
-        openAiRequest.setTop_p(0.4);
+        openAiRequest.setToP(0.4);
         openAiRequest.setN(1);
 
         return openAiRequest;
@@ -98,16 +110,20 @@ public class AIUtils {
 
     @NotNull
     public static TextResponseDto getLastOpenAITextResponse(OpenAITextResponseDto response) {
-        Optional<OpenAIChoice> openAIChoice = response.getChoices().stream()
-                .filter(choice -> choice.getMessage().getRole().equals("assistant"))
-                .reduce((first, second) -> second);    // Get the last message of openAiResponse
-        if (openAIChoice.isPresent()) {
-            TextResponseDto textResponse = new TextResponseDto(openAIChoice.get().getMessage().getContent());
-            return textResponse;
-        } else {
-            logger.error("No assistant message found in OpenAI response");
-            return new TextResponseDto("No assistant message found in OpenAI response");
+        if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
+            logger.error("OpenAI response/choices is null or empty");
+            return new TextResponseDto("No response from model");
         }
+
+        return response.getChoices().stream()
+                .map(OpenAIChoice::getMessage)
+                .filter(m -> m != null && "assistant".equalsIgnoreCase(m.getRole()))
+                .reduce((first, second) -> second) // last assistant message
+                .map(m -> new TextResponseDto(m.getContent()))
+                .orElseGet(() -> {
+                    logger.error("No assistant message found in OpenAI response");
+                    return new TextResponseDto("No assistant message found in OpenAI response");
+                });
     }
 
     @NotNull
@@ -128,7 +144,7 @@ public class AIUtils {
         OpenAIImageRequestDto imageRequestDto = new OpenAIImageRequestDto();
         imageRequestDto.setPrompt(imageRequest.getInputText());
         imageRequestDto.setN(1);
-        imageRequestDto.setSize("1024x1024");
+        imageRequestDto.setSize(ImageSize.IMAGE_SIZE_1024_1792);
         imageRequestDto.setModel(openAiImageMode);
 
         return imageRequestDto;

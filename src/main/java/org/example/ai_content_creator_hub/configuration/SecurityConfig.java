@@ -24,11 +24,9 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(UserDetailsService userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -53,6 +51,7 @@ public class SecurityConfig {
 
                 // Define authorization rules
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("favicon.ico").permitAll()
                         .requestMatchers("/api/user/register").permitAll()
                         .requestMatchers("/api/auth/**").permitAll() // Public access to authentication endpoints
                         .requestMatchers("/swagger-ui.html","/swagger-ui/**", "/v3/api-docs/**").permitAll()
@@ -80,11 +79,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         var cfg = new CorsConfiguration();
-        // If you want to be more flexible, use setAllowedOriginPatterns(List.of("http://localhost:*"))
         cfg.setAllowedOriginPatterns(List.of("http://localhost:*"));
-        //cfg.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
         cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization","Content-Type"));
+        cfg.setExposedHeaders(List.of("Authorization","Content-Type","Refresh-Token"));
         cfg.setAllowCredentials(true); // allow cookies/credentials if needed
 
         var source = new UrlBasedCorsConfigurationSource();

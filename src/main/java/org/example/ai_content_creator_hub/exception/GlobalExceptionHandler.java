@@ -106,9 +106,9 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler(OpenAIServiceException.class)
-    public ResponseEntity<String> handleOpenAIServiceException(OpenAIServiceException e) {
-        logger.error("Handled OpenAIServiceException: {}", e.getMessage(), e);
+    @ExceptionHandler(AIServiceException.class)
+    public ResponseEntity<String> handleOpenAIServiceException(AIServiceException e) {
+        logger.error("Handled AIServiceException: {}", e.getMessage(), e);
         return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
@@ -146,7 +146,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnsupportedOperationException.class)
     public ResponseEntity<String> handleUnsupportedOperation(UnsupportedOperationException e) {
         logger.error("Handled UnsupportedOperationException: {}", e.getMessage(), e);
-        return new ResponseEntity<>("This operation is not supported", HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>("This operation is not implemented", HttpStatus.NOT_IMPLEMENTED);
     }
 
     @ExceptionHandler(Exception.class)

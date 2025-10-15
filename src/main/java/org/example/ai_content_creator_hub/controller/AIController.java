@@ -77,7 +77,7 @@ public class AIController {
     @PostMapping("/start-conversation")
     public ResponseEntity<TextResponseDto> startConversation(@AuthenticationPrincipal User user) {
         logger.info("Starting conversation for user: {}", user.getUsername());
-        Conversation conversation = openAIService.createConversation(user);
+        Conversation conversation = openAIService.createConversation(user.getUsername());
         return ResponseEntity.ok(new TextResponseDto(conversation.getId().toString()));
     }
 
@@ -94,16 +94,10 @@ public class AIController {
                                                         @AuthenticationPrincipal User user,
                                                         @RequestParam("conversationId") Long conversationId) {
         logger.info("Generating text for conversation: {} and user {}", conversationId, user.getUsername());
-        // Get all conversation messages
-        List<GeneratedContent> conversationMessages = openAIService.prepareConversation(textRequest, user, conversationId);
-        // Create OpenAI request from conversation messages
-        OpenAITextRequestDto openAiRequest = AIUtils.createOpenAIConversationTextRequest(conversationMessages, openAiModel);
-        // Generate text using OpenAI
-        OpenAITextResponseDto openAiResponse = openAIService.generateConversationText(openAiRequest, user, conversationId);
+        var openAiResponse = openAIService.continueConversation(
+                conversationId, user.getUsername(), textRequest.getInputText(), openAiModel);
+
         TextResponseDto textResponse = AIUtils.getLastOpenAITextResponse(openAiResponse);
-        // Store AI response in the conversation
-        GeneratedContent aiContent = openAIService.storeGeneratedContentInConversation(
-                ContentType.TEXT, ContentRole.ASSISTANT, ContentSource.OPEN_AI, textResponse.getGeneratedText(), user, conversationId);
         return ResponseEntity.ok(textResponse);
     }
 
@@ -120,7 +114,7 @@ public class AIController {
                                                         @AuthenticationPrincipal User user) {
         logger.info("Generating text for user: {}", user.getUsername());
         OpenAITextRequestDto openAiRequest = AIUtils.createOpenAISingleTextRequest(textRequest, openAiModel);
-        OpenAITextResponseDto response = openAIService.generateSimpleText(openAiRequest, user, ContentType.TEXT);
+        OpenAITextResponseDto response = openAIService.generateSimpleText(openAiRequest, user.getUsername(), ContentType.TEXT);
         TextResponseDto textResponse = AIUtils.getLastOpenAITextResponse(response); // Get the last message of openAiResponse
         return ResponseEntity.ok(textResponse);
     }
@@ -136,7 +130,7 @@ public class AIController {
                                                          @AuthenticationPrincipal User user) {
         logger.info("Summarizing text for user: {}", user.getUsername());
         OpenAITextRequestDto openAiRequest = AIUtils.createOpenAISummarizeTextRequest(textRequest, openAiModel);
-        OpenAITextResponseDto response = openAIService.generateSimpleText(openAiRequest, user, ContentType.SUMMARY);
+        OpenAITextResponseDto response = openAIService.generateSimpleText(openAiRequest, user.getUsername(), ContentType.SUMMARY);
         TextResponseDto textResponse = AIUtils.getLastOpenAITextResponse(response); // Get the last message of openAiResponse
         return ResponseEntity.ok(textResponse);
     }
@@ -153,7 +147,7 @@ public class AIController {
                                                    @AuthenticationPrincipal User user) {
         logger.info("Analyzing Sentiment for text submitted by user: {}", user.getUsername());
         AnalyzeSentimentRequestDto googleNlpRequest = AIUtils.createGoogleNLPSentimentAnalysisRequest(textRequest);
-        AnalyzeSentimentResponseDto response = googleNLPService.analyzeSentiment(googleNlpRequest, user);
+        AnalyzeSentimentResponseDto response = googleNLPService.analyzeSentiment(googleNlpRequest, user.getUsername());
         return ResponseEntity.ok(response);
     }
 
@@ -168,7 +162,7 @@ public class AIController {
                                            @AuthenticationPrincipal User user) {
         logger.info("Generating Image for text submitted by user: {}",  user.getUsername());
         OpenAIImageRequestDto openAIImageRequest = AIUtils.createOpenAIGenerateImageRequest(imageRequest, openAiImageMode);
-        OpenAIImageResponseDto response = dallEImageService.generateImage(openAIImageRequest, user, ContentType.IMAGE);
+        OpenAIImageResponseDto response = dallEImageService.generateImage(openAIImageRequest, user.getUsername(), ContentType.IMAGE);
         return ResponseEntity.ok(response);
     }
 

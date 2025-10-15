@@ -21,6 +21,7 @@ public class OpenAIImageRequestDto {
      * Must be one of 256x256, 512x512, or 1024x1024 for dall-e-2.
      * Must be one of 1024x1024, 1792x1024, or 1024x1792 for dall-e-3 models.
      */
+    @JsonProperty(value="size", required = false)
     private String size;
     /**
      * The number of images to generate.
@@ -44,4 +45,8 @@ public class OpenAIImageRequestDto {
      */
     //@JsonProperty(value="response_format", required = false)
     //private String style;
+
+    public void setSize(ImageSize imageSize) {
+        this.size = imageSize.getWire();
+    }
 }

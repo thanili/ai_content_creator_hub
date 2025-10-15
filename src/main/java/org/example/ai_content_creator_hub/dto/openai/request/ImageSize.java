@@ -7,7 +7,7 @@ public enum ImageSize {
     IMAGE_SIZE_1792_1024("1792x1024"),
     IMAGE_SIZE_1024_1792("1024x1792");
 
-    ImageSize(String s) {
-
-    }
+    private final String wire;
+    ImageSize(String wire) { this.wire = wire; }
+    public String getWire() { return wire; }
 }
